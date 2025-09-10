@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useStore } from '../state/store';
-import { lightTheme, darkTheme } from './index';
-import { AppTheme } from './types';
+import { lightTheme, darkTheme } from '../data/dummyThemes';
+import { AppTheme } from '../theme/types';
 
 interface ThemeContextType {
   theme: AppTheme;
@@ -14,10 +14,10 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const { theme } = useStore();
-  const currentTheme = useMemo<AppTheme>(() => 
-    theme === 'dark' ? darkTheme : lightTheme, 
-    [theme]
+  const themeMode = useStore((state) => state.theme);
+  const currentTheme = useMemo<AppTheme>(() =>
+    themeMode === 'dark' ? darkTheme : lightTheme,
+    [themeMode]
   );
 
   return (
@@ -29,8 +29,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
 export const useAppTheme = (): AppTheme => {
   const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useAppTheme must be used within a ThemeProvider');
-  }
+  if (!context) throw new Error('useAppTheme must be used within a ThemeProvider');
   return context.theme;
 };

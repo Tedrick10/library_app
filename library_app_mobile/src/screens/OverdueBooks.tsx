@@ -1,20 +1,37 @@
-import React from 'react';
-import { View, FlatList, StyleSheet } from 'react-native';
-import { useQuery } from '@apollo/client';
-import { Card, Title, Paragraph, useTheme } from 'react-native-paper';
-import { OVERDUE_RENTALS_QUERY } from '../api/fragments';
+import React, { useState, useEffect } from 'react';
+import { View, FlatList, StyleSheet, Text } from 'react-native';
+import { Card, Title, Paragraph } from 'react-native-paper';
 import Loading from '../components/Loading';
+import { getOverdueRentals } from '../api/dummyDataService';
 
 const OverdueBooks: React.FC = () => {
-  const { data, loading } = useQuery(OVERDUE_RENTALS_QUERY);
-  const theme = useTheme();
+  const [overdueBooks, setOverdueBooks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchOverdueBooks = async () => {
+      try {
+        const response = await getOverdueRentals();
+        setOverdueBooks(response.overdueRentals);
+      } catch (err) {
+        setError('Failed to load overdue books');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOverdueBooks();
+  }, []);
 
   if (loading) return <Loading fullScreen />;
+  if (error) return <View><Text>{error}</Text></View>;
 
   return (
     <View style={styles.container}>
       <FlatList
-        data={data?.overdueRentals || []}
+        data={overdueBooks}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <Card style={styles.card}>
@@ -34,21 +51,10 @@ const OverdueBooks: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 10,
-  },
-  card: {
-    marginBottom: 10,
-  },
-  dueDate: {
-    color: 'red',
-    marginTop: 5,
-  },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 50,
-  },
+  container: { flex: 1, padding: 10 },
+  card: { marginBottom: 10 },
+  dueDate: { color: 'red', marginTop: 5 },
+  emptyText: { textAlign: 'center', marginTop: 50 },
 });
 
 export default OverdueBooks;

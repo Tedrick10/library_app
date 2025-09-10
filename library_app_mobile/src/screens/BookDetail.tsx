@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
-import { useQuery, useMutation } from '@apollo/client';
+import { View, ScrollView, StyleSheet, Alert, Text } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Card, Title, Paragraph, Button, Avatar } from 'react-native-paper';
-import { BOOK_QUERY, RENT_BOOK, RETURN_BOOK, ADD_FAVORITE, REMOVE_FAVORITE } from '../api/fragments';
+import { Card, Title, Paragraph, Button } from 'react-native-paper';
 import { useStore } from '../state/store';
+import { getBook, rentBook, returnBook } from '../api/dummyDataService';
 import Loading from '../components/Loading';
 
 type RootStackParamList = {
   BookDetail: { bookId: string };
 };
-
 type BookDetailNavigationProp = NativeStackNavigationProp<RootStackParamList, 'BookDetail'>;
 
 interface BookDetailProps {
@@ -25,88 +23,130 @@ interface BookDetailProps {
 const BookDetail: React.FC<BookDetailProps> = ({ route }) => {
   const { bookId } = route.params;
   const navigation = useNavigation<BookDetailNavigationProp>();
-  const { data, loading, error } = useQuery(BOOK_QUERY, { 
-    variables: { id: bookId },
-    skip: !bookId
-  });
   
-  const [rentBook] = useMutation(RENT_BOOK);
-  const [returnBook] = useMutation(RETURN_BOOK);
-  const [addFavorite] = useMutation(ADD_FAVORITE);
-  const [removeFavorite] = useMutation(REMOVE_FAVORITE);
+  const [book, setBook] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [renting, setRenting] = useState(false);
+  const [returning, setReturning] = useState(false);
   
   const user = useStore((state) => state.user);
   const favorites = useStore((state) => state.favorites);
-  const addFavoriteLocal = useStore((state) => state.addFavorite);
-  const removeFavoriteLocal = useStore((state) => state.removeFavorite);
+  const addFavorite = useStore((state) => state.addFavorite);
+  const removeFavorite = useStore((state) => state.removeFavorite);
   const isFavorite = bookId ? favorites.includes(bookId) : false;
 
-  const handleRent = () => {
-    if (!bookId) return;
-    rentBook({ variables: { bookId: bookId } });
+  useEffect(() => {
+    const fetchBook = async () => {
+      try {
+        const response = await getBook(bookId);
+        setBook(response.book);
+      } catch (err) {
+        setError('Failed to load book details');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBook();
+  }, [bookId]);
+
+  useEffect(() => {
+    if (book?.title) {
+      navigation.setOptions({ title: book.title });
+    }
+  }, [navigation, book?.title]);
+
+  const handleRent = async () => {
+    if (!book) return;
+    
+    setRenting(true);
+    try {
+      await rentBook(book.id);
+      // Update local book state
+      setBook((prev: any) => ({
+        ...prev!,
+        availableCopies: prev!.availableCopies - 1
+      }));
+      Alert.alert('Success', 'Book rented successfully!');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to rent book');
+    } finally {
+      setRenting(false);
+    }
   };
 
-  const handleReturn = () => {
-    if (!bookId) return;
-    returnBook({ variables: { rentalId: bookId } });
+  const handleReturn = async () => {
+    if (!book) return;
+    
+    setReturning(true);
+    try {
+      // In a real app, you would need the rental ID
+      // For demo, we'll just simulate returning the book
+      await returnBook('dummy-rental-id');
+      // Update local book state
+      setBook((prev: any) => ({
+        ...prev!,
+        availableCopies: prev!.availableCopies + 1
+      }));
+      Alert.alert('Success', 'Book returned successfully!');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to return book');
+    } finally {
+      setReturning(false);
+    }
   };
 
   const handleToggleFavorite = () => {
     if (!bookId) return;
     
     if (isFavorite) {
-      removeFavorite({ variables: { favoriteId: bookId } });
-      removeFavoriteLocal(bookId);
+      removeFavorite(bookId);
+      Alert.alert('Removed', 'Book removed from favorites');
     } else {
-      addFavorite({ variables: { bookId: bookId }});
-      addFavoriteLocal(bookId);
+      addFavorite(bookId);
+      Alert.alert('Added', 'Book added to favorites');
     }
   };
 
-  useEffect(() => {
-    if (data?.book?.title) {
-      navigation.setOptions({ title: data.book.title });
-    }
-  }, [navigation, data?.book?.title]);
-
   if (loading) return <Loading fullScreen />;
-  
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <Title>Error loading book details</Title>
-      </View>
-    );
-  }
-  
-  if (!data?.book) {
-    return (
-      <View style={styles.container}>
-        <Title>Book not found</Title>
-      </View>
-    );
-  }
+  if (error || !book) return <View><Text>{error || 'Book not found'}</Text></View>;
 
   return (
     <ScrollView style={styles.container}>
       <Card>
-        <Card.Cover source={{ uri: data.book.coverImage || 'https://via.placeholder.com/400' }} />
+        <Card.Cover source={{ uri: book.coverImage || 'https://via.placeholder.com/400' }} />
         <Card.Content>
-          <Title>{data.book.title || 'Unknown Title'}</Title>
-          <Paragraph>by {data.book.author || 'Unknown Author'}</Paragraph>
+          <Title>{book.title || 'Unknown Title'}</Title>
+          <Paragraph>by {book.author || 'Unknown Author'}</Paragraph>
           <Paragraph style={styles.description}>
-            {data.book.description || 'No description available'}
+            {book.description || 'No description available'}
           </Paragraph>
           
           <Paragraph style={styles.copies}>
-            Available: {data.book.availableCopies ?? 0} of {data.book.totalCopies ?? 0}
+            Available: {book.availableCopies ?? 0} of {book.totalCopies ?? 0}
           </Paragraph>
         </Card.Content>
         <Card.Actions>
-          {data.book.availableCopies && data.book.availableCopies > 0 ? (
-            <Button mode="contained" onPress={handleRent}>Rent Book</Button>
+          {book.availableCopies > 0 ? (
+            <Button 
+              mode="contained" 
+              onPress={handleRent}
+              loading={renting}
+              disabled={renting}
+            >
+              Rent Book
+            </Button>
           ) : (
-            <Button mode="contained" onPress={handleReturn}>Return Book</Button>
+            <Button 
+              mode="contained" 
+              onPress={handleReturn}
+              loading={returning}
+              disabled={returning}
+            >
+              Return Book
+            </Button>
           )}
           
           <Button 

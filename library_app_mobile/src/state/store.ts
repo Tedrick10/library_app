@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { dummyBooks } from '../data/dummyBooks';
 
 interface User {
   uid: string;
@@ -19,7 +20,7 @@ interface Book {
 interface StoreState {
   user: User | null;
   books: Book[];
-  favorites: string[];
+  favorites: string[]; // Store book IDs instead of full objects
   theme: 'light' | 'dark';
   setUser: (user: User | null) => void;
   setBooks: (books: Book[]) => void;
@@ -32,8 +33,8 @@ export const useStore = create<StoreState>()(
   persist(
     (set) => ({
       user: null,
-      books: [],
-      favorites: [],
+      books: dummyBooks, // Initialize with dummy books
+      favorites: ['1', '3'], // Initialize with some favorites
       theme: 'light',
       
       setUser: (user) => set({ user }),
